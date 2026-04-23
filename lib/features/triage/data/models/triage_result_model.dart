@@ -52,11 +52,11 @@ class TriageResultModel {
   Color get borderColor {
     switch (category) {
       case TriageCategory.emergency:
-        return AppColors.emergencyBorder;
+        return AppColors.emergencyDeep;
       case TriageCategory.doctorVisit:
-        return AppColors.doctorVisitBorder;
+        return AppColors.doctorVisitDeep;
       case TriageCategory.homeCare:
-        return AppColors.homeCareBorder;
+        return AppColors.homeCareDeep;
     }
   }
 

@@ -6,131 +6,216 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
+  static const double radiusSm = 12;
+  static const double radiusMd = 16;
+  static const double radiusLg = 20;
+  static const double radiusXl = 28;
+
   static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
+    final base = ThemeData.light(useMaterial3: true);
+
+    return base.copyWith(
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         brightness: Brightness.light,
         primary: AppColors.primary,
         surface: AppColors.surface,
         background: AppColors.background,
+        onPrimary: AppColors.white,
+        onSurface: AppColors.textPrimary,
+        onBackground: AppColors.textPrimary,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      fontFamily: GoogleFonts.dmSans().fontFamily,
       textTheme: _buildTextTheme(),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.surface,
+      primaryTextTheme: _buildTextTheme(),
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 1,
-        shadowColor: AppColors.shadow,
-        systemOverlayStyle: SystemUiOverlayStyle(
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.dark,
         ),
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.dmSans(
           color: AppColors.textPrimary,
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.3,
         ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: AppColors.textPrimary, size: 24),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          minimumSize: const Size(64, 56),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusSm),
+          ),
+          textStyle: GoogleFonts.dmSans(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          foregroundColor: AppColors.textPrimary,
+          side: const BorderSide(color: AppColors.borderStrong, width: 1.5),
+          minimumSize: const Size(64, 56),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusSm),
+          ),
+          textStyle: GoogleFonts.dmSans(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          textStyle: GoogleFonts.dmSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.background,
+        fillColor: AppColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radiusSm),
           borderSide: const BorderSide(color: AppColors.borderStrong, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radiusSm),
           borderSide: const BorderSide(color: AppColors.borderStrong, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radiusSm),
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
-        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        hintStyle: GoogleFonts.dmSans(
+          color: AppColors.textMuted,
+          fontSize: 16,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.divider,
         thickness: 1,
         space: 0,
       ),
-      cardTheme: CardThemeData(
+      cardTheme: const CardThemeData(
         elevation: 0,
         color: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.borderStrong, width: 1),
-        ),
+        surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
       ),
+      splashFactory: InkSparkle.splashFactory,
     );
   }
 
   static TextTheme _buildTextTheme() {
+    final base = GoogleFonts.dmSansTextTheme();
     return TextTheme(
-      headlineLarge: GoogleFonts.dmSans(
-        fontSize: 28, fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary, letterSpacing: -0.5,
+      // Display — reserved for true hero moments
+      displayLarge: base.displayLarge?.copyWith(
+        fontSize: 44,
+        fontWeight: FontWeight.w800,
+        color: AppColors.textPrimary,
+        letterSpacing: -1.2,
+        height: 1.05,
       ),
-      headlineMedium: GoogleFonts.dmSans(
-        fontSize: 22, fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary, letterSpacing: -0.3,
+      displayMedium: base.displayMedium?.copyWith(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+        letterSpacing: -0.8,
+        height: 1.1,
       ),
-      headlineSmall: GoogleFonts.dmSans(
-        fontSize: 18, fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary, letterSpacing: -0.2,
+
+      // Headline — screen-level section heads
+      headlineLarge: base.headlineLarge?.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+        letterSpacing: -0.5,
+        height: 1.2,
       ),
-      titleLarge: GoogleFonts.dmSans(
-        fontSize: 16, fontWeight: FontWeight.w600,
+      headlineMedium: base.headlineMedium?.copyWith(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+        letterSpacing: -0.3,
+        height: 1.3,
+      ),
+      headlineSmall: base.headlineSmall?.copyWith(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+        letterSpacing: -0.2,
+      ),
+
+      // Title — card/section heads
+      titleLarge: base.titleLarge?.copyWith(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       ),
-      titleMedium: GoogleFonts.dmSans(
-        fontSize: 15, fontWeight: FontWeight.w500,
+      titleMedium: base.titleMedium?.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       ),
-      bodyLarge: GoogleFonts.dmSans(
-        fontSize: 15, fontWeight: FontWeight.w400,
-        color: AppColors.textPrimary, height: 1.6,
+
+      // Body — default 17 for legibility (rural/elderly)
+      bodyLarge: base.bodyLarge?.copyWith(
+        fontSize: 17,
+        fontWeight: FontWeight.w400,
+        color: AppColors.textPrimary,
+        height: 1.55,
       ),
-      bodyMedium: GoogleFonts.dmSans(
-        fontSize: 14, fontWeight: FontWeight.w400,
-        color: AppColors.textSecondary, height: 1.6,
+      bodyMedium: base.bodyMedium?.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
+        color: AppColors.textSecondary,
+        height: 1.55,
       ),
-      bodySmall: GoogleFonts.dmSans(
-        fontSize: 12, fontWeight: FontWeight.w400,
-        color: AppColors.textMuted, height: 1.5,
+      bodySmall: base.bodySmall?.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+        color: AppColors.textMuted,
+        height: 1.5,
       ),
-      labelLarge: GoogleFonts.dmSans(
-        fontSize: 13, fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary, letterSpacing: 0.05,
+
+      // Label — chips, captions, tags
+      labelLarge: base.labelLarge?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
       ),
-      labelSmall: GoogleFonts.dmSans(
-        fontSize: 11, fontWeight: FontWeight.w600,
-        color: AppColors.textMuted, letterSpacing: 0.08,
+      labelMedium: base.labelMedium?.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textMuted,
+        letterSpacing: 0.8,
+      ),
+      labelSmall: base.labelSmall?.copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textMuted,
+        letterSpacing: 1.0,
       ),
     );
   }

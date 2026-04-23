@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../controllers/triage_controller.dart';
 import '../widgets/result_card.dart';
 import '../../data/models/triage_result_model.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_theme.dart';
 import '../../../../core/constants/strings.dart';
 import '../../../../core/services/location_service.dart';
 
@@ -16,44 +18,119 @@ class ResultScreen extends StatelessWidget {
     final controller = Get.find<TriageController>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Obx(() => Text(
-          controller.isHindi ? AppStrings.triageResultHi : AppStrings.triageResult,
-        )),
-        leading: IconButton(
-          icon: const Icon(Icons.home_rounded),
-          onPressed: controller.reset,
-          tooltip: 'Start over',
-        ),
-        actions: [
-          // Speak result button
-          IconButton(
-            icon: const Icon(Icons.volume_up_rounded),
-            onPressed: () {
-              final result = controller.triageResult.value;
-              if (result != null) {
-                controller.currentSymptom.value; // trigger rebuild
-                // Re-speak result
-                Get.find<TriageController>()
-                    ._speechService_speak(result, controller.isHindi);
-              }
-            },
-            tooltip: 'Speak result',
+      body: Obx(() {
+        final result = controller.triageResult.value;
+        if (result == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+          ),
+          child: Stack(
+            children: [
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: ResultCard(
+                      result: result,
+                      isHindi: controller.isHindi,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: _ResultBody(
+                      result: result,
+                      controller: controller,
+                    ),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: _OverlayTopBar(controller: controller),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Overlay top bar (floats over colored header) ──────────────────────────
+
+class _OverlayTopBar extends StatelessWidget {
+  final TriageController controller;
+  const _OverlayTopBar({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+      child: Row(
+        children: [
+          _CircleIconButton(
+            icon: Icons.arrow_back_rounded,
+            tooltip: 'Back',
+            onTap: controller.reset,
+          ),
+          const Spacer(),
+          _CircleIconButton(
+            icon: Icons.volume_up_rounded,
+            tooltip: 'Replay',
+            onTap: controller.replayResult,
           ),
         ],
-      ),
-      body: SafeArea(
-        child: Obx(() {
-          final result = controller.triageResult.value;
-          if (result == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return _ResultBody(result: result, controller: controller);
-        }),
       ),
     );
   }
 }
+
+class _CircleIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _CircleIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: AppColors.white.withOpacity(0.22),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(
+                child: Icon(icon, color: AppColors.white, size: 22),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Result body ────────────────────────────────────────────────────────────
 
 class _ResultBody extends StatelessWidget {
   final TriageResultModel result;
@@ -63,343 +140,455 @@ class _ResultBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Main result card
-          ResultCard(result: result, isHindi: controller.isHindi),
-          const SizedBox(height: 20),
+          // Next-step label + copy
+          Obx(() {
+            final hi = controller.isHindi;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hi ? AppStrings.nextStepsHi : AppStrings.nextSteps,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  result.nextSteps,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontSize: 20,
+                        height: 1.4,
+                      ),
+                ),
+              ],
+            );
+          }).animate(delay: 320.ms).fadeIn(duration: 280.ms).slideY(begin: 0.06),
+          const SizedBox(height: 24),
 
-          // Home care tips (only for HOME_CARE)
+          _PrimaryAction(result: result, controller: controller)
+              .animate(delay: 400.ms)
+              .fadeIn(duration: 300.ms)
+              .slideY(begin: 0.08),
+
+          const SizedBox(height: 12),
+
+          _SecondaryActions(result: result, controller: controller),
+
           if (result.category == TriageCategory.homeCare &&
-              result.homeCareTips.isNotEmpty)
-            _HomeCareTipsCard(
-              tips: result.homeCareTips,
-              isHindi: controller.isHindi,
-            ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
+              result.homeCareTips.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            _HomeCareTips(tips: result.homeCareTips, controller: controller)
+                .animate(delay: 520.ms)
+                .fadeIn(duration: 320.ms),
+          ],
 
-          if (result.category == TriageCategory.homeCare &&
-              result.homeCareTips.isNotEmpty)
-            const SizedBox(height: 20),
-
-          // Action buttons
-          _ActionButtons(result: result, controller: controller),
-          const SizedBox(height: 16),
-
-          // Nearby facilities
-          if (result.category != TriageCategory.homeCare)
-            _NearbyFacilitiesCard(
+          if (result.category != TriageCategory.homeCare) ...[
+            const SizedBox(height: 28),
+            _NearbyFacilities(
               facilities: controller.getNearbyFacilities(),
-              isHindi: controller.isHindi,
-            ).animate(delay: 400.ms).fadeIn(duration: 400.ms),
+              controller: controller,
+            ).animate(delay: 520.ms).fadeIn(duration: 320.ms),
+          ],
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
 
-          // New assessment
-          OutlinedButton.icon(
-            onPressed: controller.reset,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: Obx(() => Text(
-              controller.isHindi
-                  ? AppStrings.newAssessmentHi
-                  : AppStrings.newAssessment,
-            )),
-          ).animate(delay: 500.ms).fadeIn(),
+          Center(
+            child: TextButton.icon(
+              onPressed: controller.reset,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: Obx(() => Text(
+                    controller.isHindi
+                        ? AppStrings.newAssessmentHi
+                        : AppStrings.newAssessment,
+                  )),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+              ),
+            ),
+          ),
 
           const SizedBox(height: 12),
           Obx(() => Text(
-            controller.isHindi ? AppStrings.disclaimerHi : AppStrings.disclaimer,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11, color: AppColors.textMuted, height: 1.6,
-            ),
-          )),
+                controller.isHindi
+                    ? AppStrings.disclaimerHi
+                    : AppStrings.disclaimer,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              )),
         ],
       ),
     );
   }
 }
 
-// ─── Action Buttons ──────────────────────────────────────────────────────────
+// ─── Primary action (hero CTA) ──────────────────────────────────────────────
 
-class _ActionButtons extends StatelessWidget {
+class _PrimaryAction extends StatelessWidget {
   final TriageResultModel result;
   final TriageController controller;
 
-  const _ActionButtons({required this.result, required this.controller});
+  const _PrimaryAction({required this.result, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final isHindi = controller.isHindi;
+    final hi = controller.isHindi;
 
+    late final IconData icon;
+    late final String title;
+    late final String subtitle;
+    late final VoidCallback onTap;
+    late final Color color;
+
+    switch (result.category) {
+      case TriageCategory.emergency:
+        icon = Icons.call_rounded;
+        title = hi ? AppStrings.callAmbulanceHi : AppStrings.callAmbulance;
+        subtitle = hi ? '108 — निःशुल्क एम्बुलेंस' : '108 — Free ambulance';
+        onTap = controller.callAmbulance;
+        color = AppColors.emergency;
+        break;
+      case TriageCategory.doctorVisit:
+        icon = Icons.map_rounded;
+        title = hi ? AppStrings.findNearbyPHCHi : AppStrings.findNearbyPHC;
+        subtitle =
+            hi ? 'प्राथमिक स्वास्थ्य केंद्र खोजें' : 'Find a Primary Health Centre';
+        onTap = controller.openNearestPHC;
+        color = AppColors.doctorVisit;
+        break;
+      case TriageCategory.homeCare:
+        icon = Icons.headset_mic_rounded;
+        title = hi ? AppStrings.healthHelplineHi : AppStrings.healthHelpline;
+        subtitle = hi ? '104 — टेलीमेडिसिन' : '104 — Telemedicine';
+        onTap = controller.callHealthHelpline;
+        color = AppColors.homeCare;
+        break;
+    }
+
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: AppColors.white, size: 26),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: AppColors.white.withOpacity(0.85),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_rounded,
+                  color: AppColors.white.withOpacity(0.9), size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Secondary actions ──────────────────────────────────────────────────────
+
+class _SecondaryActions extends StatelessWidget {
+  final TriageResultModel result;
+  final TriageController controller;
+
+  const _SecondaryActions({required this.result, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
     return Obx(() {
-      final _ = controller.language.value; // rebuild on language change
+      final hi = controller.isHindi;
 
-      if (result.category == TriageCategory.emergency) {
-        return Column(
-          children: [
-            _ActionTile(
-              icon: Icons.phone_rounded,
-              label: isHindi ? AppStrings.callAmbulanceHi : AppStrings.callAmbulance,
-              subtitle: '108 — ${isHindi ? "निःशुल्क आपातकालीन" : "Free emergency"}',
-              color: AppColors.emergency,
-              backgroundColor: AppColors.emergencyLight,
-              onTap: controller.callAmbulance,
-            ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.05),
-            const SizedBox(height: 10),
-            _ActionTile(
-              icon: Icons.local_hospital_rounded,
-              label: isHindi ? AppStrings.nearestHospitalHi : AppStrings.nearestHospital,
-              subtitle: isHindi ? 'Google Maps पर खोलें' : 'Open in Google Maps',
-              color: AppColors.primary,
-              backgroundColor: AppColors.primaryLight,
-              onTap: controller.openNearestHospital,
-            ).animate(delay: 80.ms).fadeIn(duration: 300.ms).slideX(begin: -0.05),
-          ],
-        );
+      final tiles = <Widget>[];
+
+      switch (result.category) {
+        case TriageCategory.emergency:
+          tiles.add(_SecondaryTile(
+            icon: Icons.local_hospital_rounded,
+            label: hi ? AppStrings.nearestHospitalHi : AppStrings.nearestHospital,
+            subtitle: hi ? 'Google Maps पर खोलें' : 'Open in Google Maps',
+            onTap: controller.openNearestHospital,
+          ));
+          break;
+        case TriageCategory.doctorVisit:
+          tiles.add(_SecondaryTile(
+            icon: Icons.headset_mic_rounded,
+            label: hi ? AppStrings.healthHelplineHi : AppStrings.healthHelpline,
+            subtitle: hi ? '104 — टेलीमेडिसिन' : '104 — Telemedicine',
+            onTap: controller.callHealthHelpline,
+          ));
+          break;
+        case TriageCategory.homeCare:
+          // No secondary tile; home-care primary is the helpline already.
+          break;
       }
 
-      if (result.category == TriageCategory.doctorVisit) {
-        return Column(
-          children: [
-            _ActionTile(
-              icon: Icons.map_rounded,
-              label: isHindi ? AppStrings.findNearbyPHCHi : AppStrings.findNearbyPHC,
-              subtitle: isHindi ? 'प्राथमिक स्वास्थ्य केंद्र' : 'Primary Health Centre',
-              color: AppColors.primary,
-              backgroundColor: AppColors.primaryLight,
-              onTap: controller.openNearestPHC,
-            ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.05),
-            const SizedBox(height: 10),
-            _ActionTile(
-              icon: Icons.headset_mic_rounded,
-              label: isHindi ? AppStrings.healthHelplineHi : AppStrings.healthHelpline,
-              subtitle: '104 — ${isHindi ? "टेलीमेडिसिन" : "Telemedicine"}',
-              color: AppColors.doctorVisit,
-              backgroundColor: AppColors.doctorVisitLight,
-              onTap: controller.callHealthHelpline,
-            ).animate(delay: 80.ms).fadeIn(duration: 300.ms).slideX(begin: -0.05),
-          ],
-        );
-      }
+      if (tiles.isEmpty) return const SizedBox.shrink();
 
-      // Home care
-      return _ActionTile(
-        icon: Icons.call_rounded,
-        label: isHindi ? AppStrings.healthHelplineHi : AppStrings.healthHelpline,
-        subtitle: '104 — ${isHindi ? "2 दिन बाद सुधार न हो तो" : "If no improvement in 2 days"}',
-        color: AppColors.homeCare,
-        backgroundColor: AppColors.homeCareLight,
-        onTap: controller.callHealthHelpline,
-      ).animate().fadeIn(duration: 300.ms);
+      return Column(
+        children: tiles
+            .map((t) => Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: t,
+                ))
+            .toList(),
+      ).animate(delay: 480.ms).fadeIn(duration: 280.ms);
     });
   }
 }
 
-class _ActionTile extends StatelessWidget {
+class _SecondaryTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String subtitle;
-  final Color color;
-  final Color backgroundColor;
   final VoidCallback onTap;
 
-  const _ActionTile({
+  const _SecondaryTile({
     required this.icon,
     required this.label,
     required this.subtitle,
-    required this.color,
-    required this.backgroundColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            border: Border.all(color: AppColors.borderStrong, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 20),
               ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600, color: color,
-                      )),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: const TextStyle(
-                        fontSize: 12, color: AppColors.textMuted,
-                      )),
-                ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.5)),
-          ],
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ─── Home Care Tips Card ──────────────────────────────────────────────────────
+// ─── Home care tips ─────────────────────────────────────────────────────────
 
-class _HomeCareTipsCard extends StatelessWidget {
+class _HomeCareTips extends StatelessWidget {
   final List<String> tips;
-  final bool isHindi;
+  final TriageController controller;
 
-  const _HomeCareTipsCard({required this.tips, required this.isHindi});
+  const _HomeCareTips({required this.tips, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderStrong),
-      ),
-      child: Column(
+    return Obx(() {
+      final hi = controller.isHindi;
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            isHindi ? '💊 घर पर देखभाल' : '💊 Home Care Guide',
-            style: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.tips_and_updates_rounded,
+                  size: 18, color: AppColors.homeCare),
+              const SizedBox(width: 8),
+              Text(
+                hi ? 'घर पर देखभाल' : 'Home care guide',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          ...tips.asMap().entries.map((e) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 6, height: 6, margin: const EdgeInsets.only(top: 6),
-                  decoration: const BoxDecoration(
-                    color: AppColors.homeCare,
-                    shape: BoxShape.circle,
-                  ),
+          const SizedBox(height: 14),
+          ...tips.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 7),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.homeCare,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        t,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(e.value,
-                      style: const TextStyle(
-                        fontSize: 14, color: AppColors.textSecondary, height: 1.5,
-                      )),
-                ),
-              ],
-            ).animate(delay: Duration(milliseconds: e.key * 60))
-                .fadeIn(duration: 300.ms)
-                .slideX(begin: -0.05),
-          )),
+              )),
         ],
-      ),
-    );
+      );
+    });
   }
 }
 
-// ─── Nearby Facilities ────────────────────────────────────────────────────────
+// ─── Nearby facilities ──────────────────────────────────────────────────────
 
-class _NearbyFacilitiesCard extends StatelessWidget {
+class _NearbyFacilities extends StatelessWidget {
   final List<Map<String, String>> facilities;
-  final bool isHindi;
+  final TriageController controller;
 
-  const _NearbyFacilitiesCard({
+  const _NearbyFacilities({
     required this.facilities,
-    required this.isHindi,
+    required this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderStrong),
-      ),
-      child: Column(
+    if (facilities.isEmpty) return const SizedBox.shrink();
+    return Obx(() {
+      final hi = controller.isHindi;
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            isHindi ? '🏥 नज़दीकी स्वास्थ्य केंद्र' : '🏥 Nearby Health Centers',
-            style: const TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.location_on_rounded,
+                  size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                hi ? 'नज़दीकी स्वास्थ्य केंद्र' : 'Nearby health centres',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          ...facilities.map((f) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(f['name'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          )),
-                      Text(f['distance'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 12, color: AppColors.textMuted,
-                          )),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => LocationService.callNumber(f['phone'] ?? ''),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      f['phone'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 12, color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )),
+          const SizedBox(height: 14),
+          ...facilities.map((f) => _FacilityRow(facility: f)),
         ],
-      ),
-    );
+      );
+    });
   }
 }
 
-// Private extension to allow result screen to call TTS
-extension on Object {
-  void _speechService_speak(TriageResultModel result, bool isHindi) {
-    // No-op — TTS is triggered in controller after classification
+class _FacilityRow extends StatelessWidget {
+  final Map<String, String> facility;
+  const _FacilityRow({required this.facility});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  facility['name'] ?? '',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  facility['distance'] ?? '',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Material(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(999),
+            child: InkWell(
+              onTap: () =>
+                  LocationService.callNumber(facility['phone'] ?? ''),
+              borderRadius: BorderRadius.circular(999),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.call_rounded,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      facility['phone'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

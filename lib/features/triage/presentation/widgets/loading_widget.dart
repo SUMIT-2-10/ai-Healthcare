@@ -2,77 +2,75 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 
+/// Inline loader — three quietly-pulsing dots, no bordered box.
 class LoadingWidget extends StatelessWidget {
   final String? message;
+  final Color? accent;
 
-  const LoadingWidget({super.key, this.message});
+  const LoadingWidget({super.key, this.message, this.accent});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderStrong),
-      ),
-      child: Row(
+    final color = accent ?? AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Animated dots
-          _BouncingDots(),
-          const SizedBox(width: 16),
-          if (message != null)
-            Expanded(
-              child: Text(
-                message!,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+          _PulsingDots(color: color),
+          if (message != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              message!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _BouncingDots extends StatelessWidget {
+class _PulsingDots extends StatelessWidget {
+  final Color color;
+  const _PulsingDots({required this.color});
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(3, (i) {
         return Container(
-          margin: const EdgeInsets.only(right: 4),
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
+          margin: EdgeInsets.symmetric(horizontal: i == 1 ? 5 : 0)
+              .add(const EdgeInsets.symmetric(horizontal: 3)),
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+            color: color,
             shape: BoxShape.circle,
           ),
         )
-            .animate(onPlay: (c) => c.repeat())
-            .moveY(
-              begin: 0,
-              end: -6,
-              delay: Duration(milliseconds: i * 150),
-              duration: 400.ms,
-              curve: Curves.easeOut,
+            .animate(onPlay: (c) => c.repeat(reverse: true))
+            .fadeIn(
+              delay: Duration(milliseconds: i * 140),
+              duration: 500.ms,
+              begin: 0.25,
             )
-            .then()
-            .moveY(
-              begin: -6,
-              end: 0,
-              duration: 400.ms,
-              curve: Curves.easeIn,
+            .scaleXY(
+              begin: 0.7,
+              end: 1.0,
+              duration: 500.ms,
+              curve: Curves.easeOut,
             );
       }),
     );
   }
 }
 
-/// Full-screen overlay loader
+/// Full-screen overlay — used during classification where the user must wait.
+///
+/// Dignified: solid paper-colored wash with a single centered group.
 class FullScreenLoader extends StatelessWidget {
   final String message;
 
@@ -80,41 +78,32 @@ class FullScreenLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.background.withOpacity(0.85),
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.all(40),
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderStrong),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                color: AppColors.primary,
-                strokeWidth: 3,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ).animate().scale(
-              begin: const Offset(0.85, 0.85),
-              duration: 350.ms,
-              curve: Curves.easeOutBack,
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: false,
+        child: ColoredBox(
+          color: AppColors.background.withOpacity(0.92),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _PulsingDots(color: AppColors.primary),
+                  const SizedBox(height: 24),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ).animate().fadeIn(duration: 260.ms),
             ),
+          ),
+        ),
       ),
     );
   }

@@ -163,6 +163,23 @@ class TriageController extends GetxController {
     }
   }
 
+  // ─── Replay (TTS) ─────────────────────────────────────────────────────────
+
+  Future<void> replayQuestion() async {
+    final q = followUpQuestion.value;
+    if (q.isEmpty) return;
+    await _speechService.speak(q, language: isHindi ? 'hi-IN' : 'en-IN');
+  }
+
+  Future<void> replayResult() async {
+    final r = triageResult.value;
+    if (r == null) return;
+    await _speechService.speak(
+      '${r.titleFor(isHindi)}. ${r.nextSteps}',
+      language: isHindi ? 'hi-IN' : 'en-IN',
+    );
+  }
+
   // ─── Actions ──────────────────────────────────────────────────────────────
 
   Future<void> callAmbulance() async {
